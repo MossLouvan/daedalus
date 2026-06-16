@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daedalus-agent"
+version = "0.1.0"
+description = "A self-extending LLM agent that forges its own tools."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "MossLouvan" }]
+keywords = ["llm", "agent", "claude", "anthropic", "tool-use", "agentic", "self-improving"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "anthropic>=0.40",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/MossLouvan/daedalus"
+Repository = "https://github.com/MossLouvan/daedalus"
+
+[project.scripts]
+daedalus = "daedalus.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["daedalus*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
