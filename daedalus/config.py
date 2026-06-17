@@ -5,9 +5,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Model used for the agent loop. Sonnet 4.6 is the default because Daedalus
-# spends most of its time writing and debugging Python tools.
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+# Which LLM backend to use: "anthropic", "openai", or "ollama" (and any other
+# OpenAI-compatible server via OPENAI_BASE_URL). Defaults to Anthropic.
+PROVIDER = os.environ.get("DAEDALUS_PROVIDER", "anthropic").lower()
+
+# Universal model override. Falls back to ANTHROPIC_MODEL for back-compat, then
+# to the per-provider default in llm.DEFAULT_MODELS.
+MODEL_OVERRIDE = os.environ.get("DAEDALUS_MODEL") or os.environ.get("ANTHROPIC_MODEL")
+
+# OpenAI-compatible connection settings (used by the openai/ollama backends).
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 # Per-call output cap.
 MAX_TOKENS = int(os.environ.get("DAEDALUS_MAX_TOKENS", "4096"))

@@ -7,7 +7,7 @@ import json
 import sys
 
 from . import __version__
-from .config import MANIFEST_PATH, MODEL
+from .config import MANIFEST_PATH, PROVIDER
 from .toolbox import Toolbox
 
 try:
@@ -68,8 +68,6 @@ def _plain_print(*args):
 
 
 def cmd_run(args) -> int:
-    import anthropic  # imported lazily so `tools` works without an API key
-
     from .agent import Agent
 
     task = args.task
@@ -80,22 +78,33 @@ def cmd_run(args) -> int:
         _plain_print("error: provide a task string or --task-file")
         return 2
 
-    if args.model:
-        import daedalus.config as cfg
-
-        cfg.MODEL = args.model
-
     toolbox = _build_toolbox()
     reporter = RichReporter() if (_RICH and not args.no_color) else None
 
     try:
-        agent = Agent(toolbox=toolbox, reporter=reporter)
-    except anthropic.AnthropicError as exc:
-        _plain_print(f"failed to init Anthropic client: {exc}")
-        _plain_print("is ANTHROPIC_API_KEY set?")
+        agent = Agent(
+            toolbox=toolbox, reporter=reporter, provider=args.provider, model=args.model
+        )
+    except Exception as exc:  # missing key, missing package, bad provider, etc.
+        _plain_print(f"failed to init LLM client: {type(exc).__name__}: {exc}")
+        _plain_print(
+            "check your provider/credentials — e.g. ANTHROPIC_API_KEY, or "
+            "DAEDALUS_PROVIDER=ollama for a local model."
+        )
         return 1
 
-    final = agent.run(task)
+    if reporter:
+        reporter.console.print(f"[dim]using {agent.client.describe()}[/dim]")
+    else:
+        _plain_print(f"using {agent.client.describe()}")
+
+    try:
+        final = agent.run(task)
+    except Exception as exc:  # connection refused, auth, rate limit, etc.
+        _plain_print(f"\nrun failed: {type(exc).__name__}: {exc}")
+        if "Connection" in type(exc).__name__:
+            _plain_print("is your model server running? (e.g. `ollama serve`)")
+        return 1
 
     if _RICH and not args.no_color:
         Console().print(Panel(final.strip() or "(no text)", title="result", border_style="green"))
@@ -149,7 +158,11 @@ def build_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="run the agent on a task (default command)")
     run.add_argument("task", nargs="?", default="", help="the task to perform")
     run.add_argument("--task-file", help="read the task from a file")
-    run.add_argument("--model", help=f"override model (default: {MODEL})")
+    run.add_argument(
+        "--provider",
+        help=f"anthropic | openai | ollama (default: {PROVIDER}; or set DAEDALUS_PROVIDER)",
+    )
+    run.add_argument("--model", help="override the model id")
     run.add_argument("--no-color", action="store_true", help="plain output")
     run.set_defaults(func=cmd_run)
 

@@ -1,18 +1,17 @@
 """The core agentic loop.
 
-Daedalus is a standard Claude tool-use loop with one twist: alongside its normal
-tools it carries the `create_tool` meta-tool, so it can grow its own toolbox
-mid-task and immediately use what it forged.
+Daedalus is a standard tool-use loop with one twist: alongside its normal tools it
+carries the `create_tool` meta-tool, so it can grow its own toolbox mid-task and
+immediately use what it forged. The loop is provider-agnostic — it talks to any
+backend in :mod:`daedalus.llm` through a neutral message format.
 """
 
 from __future__ import annotations
 
-import json
 from typing import Protocol
 
-import anthropic
-
-from .config import MAX_ITERATIONS, MAX_TOKENS, MODEL
+from .config import MAX_ITERATIONS
+from .llm import Completion, build_client
 from .prompts import SYSTEM_PROMPT
 from .synthesis import Synthesizer
 from .toolbox import Toolbox
@@ -41,11 +40,13 @@ class Agent:
         self,
         toolbox: Toolbox,
         reporter: Reporter | None = None,
-        client: anthropic.Anthropic | None = None,
+        client=None,
+        provider: str | None = None,
+        model: str | None = None,
     ) -> None:
         self.toolbox = toolbox
         self.reporter = reporter or NullReporter()
-        self.client = client or anthropic.Anthropic()
+        self.client = client or build_client(provider=provider, model=model)
 
     def _dispatch(self, synth: Synthesizer, name: str, payload: dict) -> str:
         """Route a tool call to the synthesizer (meta) or the toolbox (regular)."""
@@ -71,38 +72,30 @@ class Agent:
 
             # Tool list is recomputed each turn so newly forged tools appear.
             tools = self.toolbox.specs() + synth.META_TOOLS
-            response = self.client.messages.create(
-                model=MODEL,
-                max_tokens=MAX_TOKENS,
-                system=SYSTEM_PROMPT,
-                tools=tools,
-                messages=messages,
-            )
+            completion: Completion = self.client.complete(SYSTEM_PROMPT, tools, messages)
 
-            tool_results = []
-            for block in response.content:
-                if block.type == "text":
-                    final_text = block.text
-                    if block.text.strip():
-                        self.reporter.on_assistant_text(block.text)
-                elif block.type == "tool_use":
-                    payload = block.input or {}
-                    self.reporter.on_tool_call(block.name, payload, synth.is_meta(block.name))
-                    result = self._dispatch(synth, block.name, payload)
-                    self.reporter.on_tool_result(block.name, result)
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        }
-                    )
+            final_text = completion.text
+            if completion.text.strip():
+                self.reporter.on_assistant_text(completion.text)
 
-            messages.append({"role": "assistant", "content": response.content})
+            # Record the assistant turn in the neutral history.
+            assistant_turn: dict = {"role": "assistant"}
+            if completion.text:
+                assistant_turn["text"] = completion.text
+            if completion.tool_calls:
+                assistant_turn["tool_calls"] = completion.tool_calls
+            messages.append(assistant_turn)
 
-            if response.stop_reason != "tool_use":
+            if not completion.tool_calls:
                 return final_text  # natural end of turn — task done
 
-            messages.append({"role": "user", "content": tool_results})
+            results = []
+            for tc in completion.tool_calls:
+                self.reporter.on_tool_call(tc.name, tc.input, synth.is_meta(tc.name))
+                result = self._dispatch(synth, tc.name, tc.input)
+                self.reporter.on_tool_result(tc.name, result)
+                results.append({"id": tc.id, "name": tc.name, "content": result})
+
+            messages.append({"role": "tool", "results": results})
 
         return final_text or "(stopped: hit the iteration limit before finishing)"

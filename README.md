@@ -4,9 +4,9 @@
 
 <a href="https://github.com/MossLouvan/daedalus">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=F59E0B&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Python+%C2%B7+Claude+API" />
-    <source media="(prefers-color-scheme: light)" srcset="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=B45309&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Python+%C2%B7+Claude+API" />
-    <img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=B45309&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Python+%C2%B7+Claude+API" alt="" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=F59E0B&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Runs+on+Claude%2C+GPT%2C+or+local+models" />
+    <source media="(prefers-color-scheme: light)" srcset="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=B45309&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Runs+on+Claude%2C+GPT%2C+or+local+models" />
+    <img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=600&size=22&duration=3000&pause=900&color=B45309&center=true&vCenter=true&width=560&height=45&lines=Forges+its+own+tools;Boots+with+3+tools+%E2%80%94+builds+the+rest;Forge+%E2%86%92+Sandbox-test+%E2%86%92+Persist+%E2%86%92+Reuse;Runs+on+Claude%2C+GPT%2C+or+local+models" alt="" />
   </picture>
 </a>
 
@@ -17,6 +17,8 @@
 [![Tests](https://img.shields.io/badge/tests-13_passing-22c55e?style=for-the-badge&logo=pytest&logoColor=white)](#-verified)
 [![License](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MossLouvan/daedalus?style=for-the-badge&color=F59E0B)](https://github.com/MossLouvan/daedalus/stargazers)
+<br>
+[![Models](https://img.shields.io/badge/runs_on-Claude%20%C2%B7%20OpenAI%20%C2%B7%20Ollama%20%C2%B7%20local-7C2D12?style=for-the-badge)](#-run-it-with-any-model)
 
 Most agents are stuck with the tools their author gave them. **Daedalus isn't.**<br>
 It boots with three primitive file operations — and when a task needs a capability it
@@ -86,16 +88,55 @@ git clone https://github.com/MossLouvan/daedalus
 cd daedalus
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
+```
 
+Then point it at any provider (pick one) and give it a task it has no tool for:
+
+```bash
+# Anthropic Claude (default)
 export ANTHROPIC_API_KEY=sk-ant-...
-
-# Give it a task it has no tool for:
 daedalus "Compute the 30th Fibonacci number and tell me if it is prime."
 
-# Inspect what it taught itself:
+# …or a local open-source model via Ollama — no API key, no cost
+ollama serve && ollama pull qwen2.5-coder:7b
+daedalus --provider ollama "Compute the 30th Fibonacci number and tell me if it is prime."
+```
+
+Inspect what it taught itself:
+
+```bash
 daedalus tools       # the current toolbox (primitive + forged)
 daedalus history     # every tool ever forged + the task that triggered it
 ```
+
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:F59E0B,100:7C2D12&height=2" alt="" />
+
+## 🔌 Run it with any model
+
+Daedalus talks to a provider-agnostic layer, so the same agent runs on hosted or
+fully local models. Set `DAEDALUS_PROVIDER` (or pass `--provider`):
+
+| Provider | Setup | Notes |
+|---|---|---|
+| **Anthropic** | `ANTHROPIC_API_KEY` | default; `claude-sonnet-4-6` |
+| **OpenAI** | `DAEDALUS_PROVIDER=openai` + `OPENAI_API_KEY` | `gpt-4o-mini` by default |
+| **Ollama** (local) | `DAEDALUS_PROVIDER=ollama` | open-source models, **no key, no cost** |
+| **OpenRouter / Together / Groq / vLLM / LM Studio** | `DAEDALUS_PROVIDER=openai` + `OPENAI_BASE_URL` + `OPENAI_API_KEY` | any OpenAI-compatible endpoint |
+
+```bash
+# Examples
+daedalus --provider openai --model gpt-4o "..."
+daedalus --provider ollama --model llama3.1 "..."
+
+# OpenRouter (any model behind an OpenAI-compatible API)
+export DAEDALUS_PROVIDER=openai
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export OPENAI_API_KEY=sk-or-...
+daedalus --model meta-llama/llama-3.1-70b-instruct "..."
+```
+
+> 💡 Tool synthesis leans hard on function calling. With local models, prefer a
+> capable tool-use model (e.g. `qwen2.5-coder`, `llama3.1`, `mistral-nemo`).
 
 <img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:F59E0B,100:7C2D12&height=2" alt="" />
 
@@ -158,7 +199,8 @@ Drop your own hand-written tool into `tools_generated/` following the same
 
 ```
 daedalus/
-├── agent.py          # the Claude tool-use loop (adds create_tool as a meta-tool)
+├── agent.py          # provider-agnostic tool-use loop (adds create_tool as a meta-tool)
+├── llm.py            # provider layer: Anthropic + any OpenAI-compatible backend
 ├── synthesis.py      # forge → sandbox-test → persist → register; manifest logging
 ├── sandbox.py        # isolated, timeout-bounded execution of a tool's self-test
 ├── toolbox.py        # dynamic registry; hot-loads forged tools at runtime
@@ -191,8 +233,11 @@ disposable VM if you do not trust the generated code, and review
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — | required for live runs |
-| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | model for the agent loop |
+| `DAEDALUS_PROVIDER` | `anthropic` | `anthropic` · `openai` · `ollama` |
+| `DAEDALUS_MODEL` | per-provider | universal model override |
+| `ANTHROPIC_API_KEY` | — | required for the Anthropic provider |
+| `OPENAI_API_KEY` | — | key for OpenAI / compatible hosts |
+| `OPENAI_BASE_URL` | provider default | point at any OpenAI-compatible server |
 | `DAEDALUS_TOOLS_DIR` | `./tools_generated` | where forged tools persist |
 | `DAEDALUS_MAX_ITERATIONS` | `40` | loop safety ceiling |
 | `DAEDALUS_SANDBOX_TIMEOUT` | `15` | per-tool self-test timeout (s) |
@@ -212,7 +257,7 @@ disposable VM if you do not trust the generated code, and review
 
 <img src="https://skillicons.dev/icons?i=py,git,github,bash&theme=dark" alt="Python · Git · GitHub · Bash" />
 
-<sub>Python · Anthropic Claude API · pytest · rich</sub>
+<sub>Python · Anthropic Claude · OpenAI-compatible (Ollama, OpenRouter, …) · pytest · rich</sub>
 
 </div>
 
