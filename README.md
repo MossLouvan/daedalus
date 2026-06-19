@@ -135,8 +135,11 @@ export OPENAI_API_KEY=sk-or-...
 daedalus --model meta-llama/llama-3.1-70b-instruct "..."
 ```
 
-> Note: tool synthesis leans hard on function calling. With local models, prefer a
-> capable tool-use model (e.g. `qwen2.5-coder`, `llama3.1`, `mistral-nemo`).
+> Note: tool synthesis leans hard on structured function calling. Prefer a capable
+> tool-use model of **7B or larger** (e.g. `qwen2.5-coder:7b`, `llama3.1:8b`,
+> `mistral-nemo`). Daedalus includes a fallback that recovers tool calls some models
+> emit as JSON in plain text, but very small models (<7B) often produce malformed
+> tool-creation payloads and are not recommended.
 
 ---
 

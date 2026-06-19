@@ -120,6 +120,36 @@ def to_openai_tools(tools: list[dict]) -> list[dict]:
     ]
 
 
+def extract_text_tool_calls(text: str) -> list[ToolCall]:
+    """Fallback for weaker models that emit a tool call as JSON in their text
+    (e.g. ```json {"name": "x", "arguments": {...}}```) instead of using the
+    structured tool_calls field. Conservative: only fires on a single clean
+    JSON object carrying a name plus arguments/parameters.
+    """
+    if not text:
+        return []
+    s = text.strip()
+    start, end = s.find("{"), s.rfind("}")
+    if start == -1 or end <= start:
+        return []
+    try:
+        obj = json.loads(s[start : end + 1])
+    except (json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(obj, dict):
+        return []
+    name = obj.get("name")
+    args = obj.get("arguments", obj.get("parameters", {}))
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (json.JSONDecodeError, ValueError):
+            return []
+    if isinstance(name, str) and isinstance(args, dict):
+        return [ToolCall(id="text_call_0", name=name, input=args)]
+    return []
+
+
 def parse_openai_response(response) -> Completion:
     choice = response.choices[0]
     msg = choice.message
@@ -131,8 +161,13 @@ def parse_openai_response(response) -> Completion:
         except json.JSONDecodeError:
             args = {}
         calls.append(ToolCall(id=tc.id, name=tc.function.name, input=args))
+
+    text = msg.content or ""
+    if not calls:  # weak-model fallback: maybe the call is buried in the text
+        calls = extract_text_tool_calls(text)
+
     stop = "tool_use" if (choice.finish_reason == "tool_calls" or calls) else "end"
-    return Completion(msg.content or "", calls, stop)
+    return Completion(text, calls, stop)
 
 
 # --------------------------------------------------------------------------- #

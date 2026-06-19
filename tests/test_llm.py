@@ -7,6 +7,7 @@ from daedalus import llm
 from daedalus.llm import (
     Completion,
     ToolCall,
+    extract_text_tool_calls,
     parse_anthropic_response,
     parse_openai_response,
     resolve_model,
@@ -81,6 +82,34 @@ def test_parse_openai_response_with_bad_json_args():
     result = parse_openai_response(resp)
     assert result.tool_calls[0].input == {}  # malformed args degrade to empty dict
     assert result.stop_reason == "tool_use"
+
+
+def test_text_tool_call_fallback_fenced():
+    # qwen-style: tool call emitted as a fenced JSON block in the text
+    text = '```json\n{"name": "compute_factorial", "arguments": {"n": 12}}\n```'
+    calls = extract_text_tool_calls(text)
+    assert len(calls) == 1
+    assert calls[0].name == "compute_factorial"
+    assert calls[0].input == {"n": 12}
+
+
+def test_text_tool_call_fallback_parameters_key():
+    # llama-style: uses "parameters" instead of "arguments"
+    calls = extract_text_tool_calls('{"name": "add", "parameters": {"a": 1}}')
+    assert calls[0].input == {"a": 1}
+
+
+def test_text_tool_call_fallback_ignores_plain_prose():
+    assert extract_text_tool_calls("The answer is 479001600.") == []
+    assert extract_text_tool_calls('{"just": "data"}') == []  # no name/args
+
+
+def test_parse_openai_response_uses_text_fallback():
+    msg = SimpleNamespace(content='{"name": "add", "arguments": {"a": 2}}', tool_calls=[])
+    resp = SimpleNamespace(choices=[SimpleNamespace(finish_reason="stop", message=msg)])
+    result = parse_openai_response(resp)
+    assert result.stop_reason == "tool_use"
+    assert result.tool_calls[0].name == "add"
 
 
 def test_resolve_model_precedence(monkeypatch):
